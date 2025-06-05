@@ -1,30 +1,96 @@
-﻿namespace PCStoreMenagement
+﻿using MySqlConnector;
+using System.Data;
+
+namespace PCStoreMenagement
 {
     public partial class Form1 : Form
     {
         public Form1()
         {
             InitializeComponent();
+
+            // Enter dugme pokreće login dugme
+            this.AcceptButton = buttonLogin;
+
+            // Fokus na username pri pokretanju forme
+            this.ActiveControl = textBoxUsername;
         }
 
+        #region Metode
+
+        /// <summary>
+        /// Metoda za brisanje polja za unos
+        /// </summary>
+        private void ClearFields()
+        {
+            textBoxUsername.Clear();
+            textBoxPassword.Clear();
+        }
+
+        #endregion
+
         private bool passwordVisible = false;
+        string conStr = Properties.Settings.Default.conStr;
 
         private void buttonLogin_Click(object sender, EventArgs e)
         {
-            string username = textBoxUsername.Text;
-            string password = textBoxPassword.Text;
+            string username = textBoxUsername.Text.Trim();
+            string password = textBoxPassword.Text.Trim();
 
-            // Simple authentication logic (replace with real authentication as needed)
-            if (username == "admin" && password == "password")
+            // Provera da su polja popunjena
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             {
-                MessageBox.Show("Login successful!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                // Optionally, proceed to the next form or main application window
+                MessageBox.Show("Molimo unesite korisničko ime i lozinku.", "Upozorenje", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
             }
-            else
+
+            using (MySqlConnection con = new MySqlConnection(conStr))
             {
-                MessageBox.Show("Invalid username or password.", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                // Proveravamo da li postoji korisnik u tabeli customer
+                string sql = "SELECT * FROM customer WHERE username = @u AND password = @p";
+                con.Open();
+                using (MySqlCommand cmd = new MySqlCommand(sql, con))
+                {
+                    cmd.Parameters.AddWithValue("@u", username);
+                    cmd.Parameters.AddWithValue("@p", password);
+                    using (MySqlDataReader dr = cmd.ExecuteReader())
+                    {
+                        if (dr.HasRows)
+                        {
+                            dr.Read();
+                            username = dr["username"].ToString();
+                            password = dr["password"].ToString();
+                            MessageBox.Show("Uspešno ste se prijavili kao " + username);
+                            ClearFields();
+                        }
+                        
+                    }
+                }
+                // Ako nije nadjen u customer, proveravamo u admin
+                string sqlAdmin = "SELECT * FROM admins WHERE username = @u AND password = @p";
+                using (MySqlCommand cmd = new MySqlCommand(sqlAdmin, con))
+                {
+                    cmd.Parameters.AddWithValue("@u", username);
+                    cmd.Parameters.AddWithValue("@p", password);
+
+                    using (MySqlDataReader dr = cmd.ExecuteReader())
+                    {
+                        if (dr.HasRows)
+                        {
+                            dr.Read();
+                            MessageBox.Show("Uspešno ste se prijavili kao administrator: " + dr["username"].ToString());
+                            ClearFields();
+                            return;
+                        }
+                    }
+                }
+                // Ako nije ni u jednoj tabeli
+                MessageBox.Show("Pogrešan username ili password.");
+                ClearFields();
             }
+
         }
+        
 
         public void buttonShowPassword_Click(object sender, EventArgs e)
         {

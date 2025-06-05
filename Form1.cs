@@ -80,6 +80,8 @@ namespace PCStoreMenagement
                             dr.Read();
                             MessageBox.Show("Uspešno ste se prijavili kao administrator: " + dr["username"].ToString());
                             ClearFields();
+                            var adminForm = new AdminForm();
+                            adminForm.ShowDialog();
                             return;
                         }
                     }

@@ -82,6 +82,7 @@ namespace PCStoreMenagement
                             ClearFields();
                             var adminForm = new AdminForm();
                             adminForm.ShowDialog();
+                            this.Close();
                             return;
                         }
                     }

@@ -62,8 +62,12 @@ namespace PCStoreMenagement
                             password = dr["password"].ToString();
                             MessageBox.Show("Uspešno ste se prijavili kao " + username);
                             ClearFields();
+                            var customerForm = new CustomerForm(username);
+                            customerForm.ShowDialog();
+                            this.Close();
+                            return;
                         }
-                        
+
                     }
                 }
                 // Ako nije nadjen u customer, proveravamo u admin
@@ -106,6 +110,7 @@ namespace PCStoreMenagement
         {
             var registrationForm = new RegistrationForm();
             registrationForm.ShowDialog();
+
         }
     }
 }

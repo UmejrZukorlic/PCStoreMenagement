@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MySqlConnector;
+using System;
 using System.Windows.Forms;
 
 namespace PCStoreMenagement
@@ -8,10 +9,14 @@ namespace PCStoreMenagement
         public RegistrationForm()
         {
             InitializeComponent(); // Ensure this call exists
+            this.AcceptButton = buttonRegister;
+
         }
 
         private bool passwordVisible = false;
         private bool rePasswordVisible = false;
+        string conStr = Properties.Settings.Default.conStr;
+
 
         private void buttonShowPassword_Click(object sender, EventArgs e)
         {
@@ -27,6 +32,8 @@ namespace PCStoreMenagement
             string firstName = textBoxFirstName.Text.Trim();
             string lastName = textBoxLastName.Text.Trim();
             string username = textBoxUsername.Text.Trim();
+            string address = textBoxAddress.Text.Trim();
+            string email = textBoxEmail.Text.Trim();
             string password = textBoxPassword.Text;
             string rePassword = textBoxRePassword.Text;
 
@@ -51,9 +58,41 @@ namespace PCStoreMenagement
                 MessageBox.Show("Šifre se ne poklapaju.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
+            using (MySqlConnection conn = new MySqlConnection(conStr))
+            {
+                conn.Open();
+                string query = @"
+                    INSERT INTO customer (username, password, first_name, last_name, email, address)
+                    VALUES (@username, @password, @firstName, @lastName, @email, @address)";
 
+                using (MySqlCommand cmd = new MySqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@username", username);
+                    cmd.Parameters.AddWithValue("@password", password);
+                    cmd.Parameters.AddWithValue("@firstName", firstName);
+                    cmd.Parameters.AddWithValue("@lastName", lastName);
+                    cmd.Parameters.AddWithValue("@email", email);
+                    cmd.Parameters.AddWithValue("@address", address);
+
+                    try
+                    {
+                        cmd.ExecuteNonQuery();
+                    }
+                    catch (MySqlException ex)
+                    {
+                        MessageBox.Show("Error: " + ex.Message);
+                    }
+                }
+            }
             MessageBox.Show("Registracija uspješna!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
             this.Close();
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            var Form1 = new Form1(); 
+            this.Close(); 
         }
     }
 }

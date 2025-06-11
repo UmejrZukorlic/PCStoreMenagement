@@ -147,7 +147,7 @@
             // 
             updateStatusButton.Location = new Point(220, 370);
             updateStatusButton.Name = "updateStatusButton";
-            updateStatusButton.Size = new Size(75, 23);
+            updateStatusButton.Size = new Size(75, 28);
             updateStatusButton.TabIndex = 5;
             updateStatusButton.Text = "Update Status";
             updateStatusButton.Click += updateStatusButton_Click;

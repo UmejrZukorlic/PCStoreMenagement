@@ -1,6 +1,7 @@
 ﻿using MySqlConnector;
 using System;
 using System.Data;
+using System.Drawing;
 using System.Windows.Forms;
 
 namespace PCStoreMenagement
@@ -16,6 +17,7 @@ namespace PCStoreMenagement
             LoadCategories();
             LoadBrands();
             deleteButton.Enabled = false;
+            customerDeleteButton.Enabled = false;
         }
 
         private int selectedCustomerId = -1;
@@ -102,7 +104,33 @@ namespace PCStoreMenagement
             }
             return -1;
         }
+        private void LoadOrderItems(int orderId)
+        {
+            using (MySqlConnection conn = new MySqlConnection(conStr))
+            {
+                conn.Open();
+                string query = @"
+            SELECT 
+                p.name AS ProductName,
+                oi.quantity AS Quantity,
+                p.price AS UnitPrice,
+                (oi.quantity * p.price) AS Total
+            FROM order_item oi
+            JOIN product p ON oi.product_id = p.product_id
+            WHERE oi.order_id = @orderId";
 
+                using (MySqlCommand cmd = new MySqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@orderId", orderId);
+                    using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))
+                    {
+                        DataTable dt = new DataTable();
+                        adapter.Fill(dt);
+                        dgvOrderItems.DataSource = dt;
+                    }
+                }
+            }
+        }
         #endregion
 
         private void LoadAllData()
@@ -349,23 +377,42 @@ namespace PCStoreMenagement
                                          MessageBoxButtons.YesNo,
                                          MessageBoxIcon.Warning);
 
-            if (result == DialogResult.Yes)
-            {
-                using (MySqlConnection con = new MySqlConnection(conStr))
-                {
-                    con.Open();
+            if (result != DialogResult.Yes)
+                return;
 
-                    MySqlCommand cmd = new MySqlCommand("DELETE FROM product WHERE product_id = @id", con);
+            using (MySqlConnection con = new MySqlConnection(conStr))
+            {
+                con.Open();
+
+                // 1. Proveri da li proizvod postoji u porudžbinama
+                string checkQuery = "SELECT COUNT(*) FROM order_item WHERE product_id = @productId";
+                using (var checkCmd = new MySqlCommand(checkQuery, con))
+                {
+                    checkCmd.Parameters.AddWithValue("@productId", selectedProductId);
+                    int count = Convert.ToInt32(checkCmd.ExecuteScalar());
+
+                    if (count > 0)
+                    {
+                        MessageBox.Show("Ne možete obrisati proizvod jer postoji u porudžbinama.");
+                        ClearFields();
+                        return;
+                    }
+                }
+
+                // 2. Ako nije u porudžbinama, obriši ga
+                using (MySqlCommand cmd = new MySqlCommand("DELETE FROM product WHERE product_id = @id", con))
+                {
                     cmd.Parameters.AddWithValue("@id", selectedProductId);
                     cmd.ExecuteNonQuery();
-
-                    MessageBox.Show("Proizvod je obrisan!");
-
-                    ClearFields();
-                    LoadProducts();
                 }
+
+                MessageBox.Show("Proizvod je obrisan!");
+
+                ClearFields();
+                LoadProducts();
             }
         }
+
 
         private void dgvCustomers_CellClick(object sender, DataGridViewCellEventArgs e)
         {
@@ -449,52 +496,35 @@ namespace PCStoreMenagement
                 using (var con = new MySqlConnection(conStr))
                 {
                     con.Open();
-                    string deleteQuery = "DELETE FROM customer WHERE customer_id=@id";
+                    string deleteQuery = @"DELETE oi FROM order_item oi
+                                            JOIN `order` o ON oi.order_id = o.order_id
+                                            WHERE o.customer_id = @id;
+                                            DELETE FROM `order` WHERE customer_id = @id;
+                                            DELETE FROM customer WHERE customer_id = @id;
+                                            ";
                     MySqlCommand cmd = new MySqlCommand(deleteQuery, con);
                     cmd.Parameters.AddWithValue("@id", selectedCustomerId);
+                    
 
                     try
                     {
                         cmd.ExecuteNonQuery();
                         LoadCustomers();
+                        LoadOrders();
+
                         MessageBox.Show("Korisnik obrisan.");
                     }
                     catch (Exception ex)
                     {
                         MessageBox.Show("Greška: " + ex.Message);
+                        
                     }
                     ResetCustomerForm();
                 }
             }
         }
 
-        private void LoadOrderItems(int orderId)
-        {
-            using (MySqlConnection conn = new MySqlConnection(conStr))
-            {
-                conn.Open();
-                string query = @"
-            SELECT 
-                p.name AS ProductName,
-                oi.quantity AS Quantity,
-                p.price AS UnitPrice,
-                (oi.quantity * p.price) AS Total
-            FROM order_item oi
-            JOIN product p ON oi.product_id = p.product_id
-            WHERE oi.order_id = @orderId";
-
-                using (MySqlCommand cmd = new MySqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@orderId", orderId);
-                    using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))
-                    {
-                        DataTable dt = new DataTable();
-                        adapter.Fill(dt);
-                        dgvOrderItems.DataSource = dt;
-                    }
-                }
-            }
-        }
+        
         private void updateStatusButton_Click(object sender, EventArgs e)
         {
             if (statusBox.SelectedItem == null || statusBox.Tag == null)
@@ -516,7 +546,7 @@ namespace PCStoreMenagement
             }
 
             MessageBox.Show("Order status updated.");
-            LoadOrders(); // Osveži glavnu tabelu ako koristiš metodu za to
+            LoadOrders(); 
         }
 
 
@@ -527,9 +557,9 @@ namespace PCStoreMenagement
                 int orderId = Convert.ToInt32(dgvOrders.Rows[e.RowIndex].Cells["OrderID"].Value);
                 string currentStatus = dgvOrders.Rows[e.RowIndex].Cells["OrderStatus"].Value.ToString();
 
-                LoadOrderItems(orderId); // prikazuje artikle
-                statusBox.SelectedItem = currentStatus; // postavi status u combobox
-                statusBox.Tag = orderId; // zapamti order_id za izmenu
+                LoadOrderItems(orderId); 
+                statusBox.SelectedItem = currentStatus; 
+                statusBox.Tag = orderId; 
             }
         
         }
